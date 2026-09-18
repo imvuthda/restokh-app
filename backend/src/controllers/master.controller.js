@@ -3,6 +3,7 @@ import { pool, withTransaction } from "../config/database.js";
 import { crudService } from "../services/crud.service.js";
 import { resolveBranchId } from "../middleware/permission.middleware.js";
 import { ApiError } from "../utils/api-error.js";
+import { deleteManagedUpload } from "../utils/upload-file.js";
 
 const configs = {
   branches: {
@@ -549,11 +550,32 @@ export async function update(req, res) {
   if (req.params.resource === "tables")
     await validateTableReferences(req, req.params.id);
   const branchId = branch(req, req.params.resource);
+
+  // Capture the previous managed image before updating. We only remove it after
+  // the database update succeeds, and only when the image URL actually changed.
+  const imageResources = new Set(["categories", "menuItems"]);
+  const previous =
+    imageResources.has(req.params.resource) &&
+    Object.prototype.hasOwnProperty.call(req.body, "image")
+      ? await service(req.params.resource).get(req.params.id, branchId)
+      : null;
+
   const data = await service(req.params.resource).update(
     req.params.id,
     req.body,
     branchId,
   );
+
+  if (previous?.image && previous.image !== data.image) {
+    const [[reference]] = await pool.execute(
+      `SELECT (
+         (SELECT COUNT(*) FROM menu_categories WHERE image=?) +
+         (SELECT COUNT(*) FROM menu_items WHERE image=?)
+       ) AS total`,
+      [previous.image, previous.image],
+    );
+    if (!Number(reference.total)) await deleteManagedUpload(previous.image);
+  }
   if (req.params.resource === "paymentMethods" && data.is_default)
     await pool.execute(
       "UPDATE payment_methods SET is_default=(id=?) WHERE branch_id=?",

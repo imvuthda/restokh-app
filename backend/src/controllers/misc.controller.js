@@ -3,6 +3,7 @@ import { resolveBranchId } from "../middleware/permission.middleware.js";
 import { nextNumber } from "../services/sequence.service.js";
 import { withTransaction } from "../config/database.js";
 import { ApiError } from "../utils/api-error.js";
+import { deleteManagedUpload } from "../utils/upload-file.js";
 export async function inventory(req, res) {
   const b = resolveBranchId(req);
   const [rows] = await pool.execute(
@@ -119,6 +120,8 @@ export async function saveSettingsBatch(req, res) {
     )
   )
     throw new ApiError(422, "At least one payment method must remain enabled");
+
+  const oldManagedImages = [];
   await withTransaction(async (db) => {
     for (const [key, rawValue] of unique) {
       const [group, type, isPublic] = validateSetting(key, rawValue);
@@ -129,9 +132,16 @@ export async function saveSettingsBatch(req, res) {
             : "false"
           : String(rawValue ?? "");
       const [[existing]] = await db.execute(
-        `SELECT id FROM settings WHERE setting_key=? AND ${branchId === null ? "branch_id IS NULL" : "branch_id=?"} ORDER BY id LIMIT 1 FOR UPDATE`,
+        `SELECT id,setting_value FROM settings WHERE setting_key=? AND ${branchId === null ? "branch_id IS NULL" : "branch_id=?"} ORDER BY id LIMIT 1 FOR UPDATE`,
         branchId === null ? [key] : [key, branchId],
       );
+      if (
+        type === "image" &&
+        existing?.setting_value &&
+        existing.setting_value !== value
+      )
+        oldManagedImages.push(existing.setting_value);
+
       if (existing)
         await db.execute(
           "UPDATE settings SET setting_group=?,setting_value=?,value_type=?,is_public=?,updated_by=? WHERE id=?",
@@ -144,6 +154,15 @@ export async function saveSettingsBatch(req, res) {
         );
     }
   });
+
+  for (const oldUrl of new Set(oldManagedImages)) {
+    const [[reference]] = await pool.execute(
+      "SELECT COUNT(*) total FROM settings WHERE setting_value=?",
+      [oldUrl],
+    );
+    if (!Number(reference.total)) await deleteManagedUpload(oldUrl);
+  }
+
   res.json({ success: true, message: "Settings saved" });
 }
 export async function saveSetting(req, res) {
@@ -154,18 +173,38 @@ export async function saveSetting(req, res) {
   const b = req.user.isSuperAdmin
     ? req.body.branch_id || null
     : req.user.branch_id;
+  const value = String(req.body.setting_value ?? "");
+  const [[previous]] = await pool.execute(
+    `SELECT setting_value FROM settings WHERE setting_key=? AND ${b === null ? "branch_id IS NULL" : "branch_id=?"} ORDER BY id LIMIT 1`,
+    b === null ? [req.body.setting_key] : [req.body.setting_key, b],
+  );
+
   await pool.execute(
     `INSERT INTO settings(branch_id,setting_group,setting_key,setting_value,value_type,is_public,updated_by) VALUES(?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),value_type=VALUES(value_type),is_public=VALUES(is_public),updated_by=VALUES(updated_by)`,
     [
       b,
       group,
       req.body.setting_key,
-      String(req.body.setting_value ?? ""),
+      value,
       type,
       isPublic ? 1 : 0,
       req.user.id,
     ],
   );
+
+  if (
+    type === "image" &&
+    previous?.setting_value &&
+    previous.setting_value !== value
+  ) {
+    const [[reference]] = await pool.execute(
+      "SELECT COUNT(*) total FROM settings WHERE setting_value=?",
+      [previous.setting_value],
+    );
+    if (!Number(reference.total))
+      await deleteManagedUpload(previous.setting_value);
+  }
+
   res.json({ success: true });
 }
 export async function dashboard(req, res) {
