@@ -1818,8 +1818,8 @@ textarea {
 }
 .receipt-logo {
   display: block;
-  width: 55px;
-  height: 55px;
+  width: 18mm;
+  height: 18mm;
   object-fit: contain;
   margin: 0 auto 5px;
 }
@@ -2126,29 +2126,61 @@ textarea {
   width: 100%;
 }
 .receipt {
-  font-family: monospace;
-  width: 72mm;
+  font-family: Battambang, "Noto Sans Khmer", Arial, sans-serif;
+  width: 80mm;
+  box-sizing: border-box;
   margin: auto;
-  padding: 5mm;
+  padding: 3mm;
   background: #fff;
   color: #000;
+  font-size: 14px;
+  line-height: 1.4;
+  font-weight: 500;
 }
 .receipt h2,
 .receipt p {
   text-align: center;
   margin: 3px;
 }
+.receipt h2 {
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+.receipt p {
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.receipt hr {
+  border: 0;
+  border-top: 1.5px dashed #000;
+  margin: 7px 0;
+}
 .receipt-line {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 8px;
   margin: 5px 0;
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+.receipt-line > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.receipt-line > b {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-weight: 800;
 }
 .receipt-meta {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 3px 8px;
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.35;
 }
 .receipt-meta b {
   text-align: right;
@@ -2159,18 +2191,21 @@ textarea {
   border: 2px solid #000;
   padding: 7px 4px;
   text-align: center;
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 19px;
+  line-height: 1.25;
+  font-weight: 900;
 }
 .receipt .total {
-  font-size: 16px;
+  margin-top: 7px;
+  font-size: 18px;
+  font-weight: 900;
 }
 .receipt .total-khr {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 900;
 }
 .receipt .payment-method {
-  font-size: 11px;
+  font-size: 13px;
 }
 .thanks {
   margin-top: 18px !important;
@@ -3010,8 +3045,34 @@ textarea {
     display: block;
   }
   .receipt {
-    width: 80mm;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 3mm !important;
+    font-size: 14px !important;
+    line-height: 1.4 !important;
     page: receipt-80mm;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .receipt h2 {
+    font-size: 20px !important;
+  }
+  .receipt p {
+    font-size: 12.5px !important;
+  }
+  .receipt-meta {
+    font-size: 12px !important;
+  }
+  .receipt-line {
+    font-size: 13.5px !important;
+  }
+  .receipt .total {
+    font-size: 18px !important;
+  }
+  .receipt .total-khr {
+    font-size: 16px !important;
   }
   .report-page.receipt-open .report-sheet {
     display: none;
@@ -3049,7 +3110,7 @@ textarea {
   }
   @page receipt-80mm {
     size: 80mm auto;
-    margin: 3mm;
+    margin: 0;
   }
   @page kitchen-80mm {
     size: 80mm auto;
